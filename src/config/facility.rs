@@ -28,6 +28,7 @@ const BUNDLED: &[(&str, &str)] = &[
         include_str!("../../facilities/perlmutter.toml"),
     ),
     ("frontier", include_str!("../../facilities/frontier.toml")),
+    ("polaris", include_str!("../../facilities/polaris.toml")),
 ];
 
 pub fn supported_facilities() -> Vec<&'static str> {
