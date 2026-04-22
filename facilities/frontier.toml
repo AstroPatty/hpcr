@@ -1,0 +1,31 @@
+[facility]
+name = "frontier"
+runtime = "apptainer"
+
+[[binds]]
+src = "/lustre"
+dst = "/lustre"
+
+[[binds]]
+src = "/sw/frontier"
+dst = "/sw/frontier"
+
+[[envs]]
+key = "FRONTIER_HOST"
+value = "frontier"
+
+[[mpi_binds]]
+src = "/opt/cray/pe"
+dst = "/opt/cray/pe"
+
+[[mpi_binds]]
+src = "/opt/rocm"
+dst = "/opt/rocm"
+
+[[mpi_envs]]
+key = "MPICH_GPU_SUPPORT_ENABLED"
+value = "1"
+
+[[mpi_envs]]
+key = "MPICH_OFI_NIC_POLICY"
+value = "GPU"
