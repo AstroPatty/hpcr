@@ -12,6 +12,13 @@ use setup::SetupArgs;
 #[derive(Parser, Debug)]
 #[command(name = "hpcr", version, about = "Run containerized jobs on HPC systems")]
 pub struct Cli {
+    #[arg(
+        long,
+        global = true,
+        help = "Print the container command that would be run without executing it"
+    )]
+    pub dry_run: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }
