@@ -2,10 +2,9 @@
 name = "polaris"
 runtime = "apptainer"
 
-
 [[mpi_binds]]
-src = "/opt/cray/"
-dst = "/opt/cray/"
+src = "/opt/cray"
+dst = "/opt/cray"
 
 [[mpi_binds]]
 src = "/var/run/palsd"
@@ -19,11 +18,9 @@ dst = "/usr/hostlib64"
 key = "MPICH_SMP_SINGLE_COPY_MODE"
 value = "NONE"
 
+# Appends Cray and PALS library paths to the container's existing
+# LD_LIBRARY_PATH so the container's own libraries remain discoverable.
 [[mpi_envs]]
-key = "APPTAINERENV_LD_LIBRARY_PATH"
-value = "$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH:/opt/cray/pe/lib64:/opt/cray/pals/1.7/lib:/usr/hostlib64"
-
-[[mpi_envs]]
-key = "MPICH_SMP_SINGLE_COPY_MODE"
-value = "NONE"
-
+key = "LD_LIBRARY_PATH"
+value = "/opt/cray/pe/lib64:/opt/cray/pals/1.7/lib:/usr/hostlib64"
+op = "append"

@@ -7,6 +7,7 @@ use crate::error::HpcrError;
 const PATTERNS: &[(&str, &str)] = &[
     ("perlmutter", "perlmutter"),
     ("frontier", "frontier"),
+    ("polaris", "polaris"),
 ];
 
 fn detect_facility() -> Option<&'static str> {

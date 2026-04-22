@@ -1,7 +1,30 @@
 use serde::Deserialize;
 
 use crate::error::HpcrError;
-use crate::runtime::{BindMount, EnvVar, Runtime};
+use crate::runtime::{BindMount, Runtime};
+
+#[derive(Debug, Clone, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum EnvOp {
+    #[default]
+    Set,
+    Prepend,
+    Append,
+}
+
+fn default_separator() -> String {
+    ":".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FacilityEnvVar {
+    pub key: String,
+    pub value: String,
+    #[serde(default)]
+    pub op: EnvOp,
+    #[serde(default = "default_separator")]
+    pub separator: String,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct FacilityConfig {
@@ -9,11 +32,11 @@ pub struct FacilityConfig {
     #[serde(default)]
     pub binds: Vec<BindMount>,
     #[serde(default)]
-    pub envs: Vec<EnvVar>,
+    pub envs: Vec<FacilityEnvVar>,
     #[serde(default)]
     pub mpi_binds: Vec<BindMount>,
     #[serde(default)]
-    pub mpi_envs: Vec<EnvVar>,
+    pub mpi_envs: Vec<FacilityEnvVar>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +92,19 @@ mod tests {
         let cfg = load_facility("frontier").unwrap();
         assert_eq!(cfg.facility.name, "frontier");
         assert!(matches!(cfg.facility.runtime, Runtime::Apptainer));
+    }
+
+    #[test]
+    fn polaris_parses() {
+        let cfg = load_facility("polaris").unwrap();
+        assert_eq!(cfg.facility.name, "polaris");
+        assert!(matches!(cfg.facility.runtime, Runtime::Apptainer));
+        let ld = cfg
+            .mpi_envs
+            .iter()
+            .find(|e| e.key == "LD_LIBRARY_PATH")
+            .expect("LD_LIBRARY_PATH should be in polaris mpi_envs");
+        assert_eq!(ld.op, EnvOp::Append);
     }
 
     #[test]

@@ -7,7 +7,7 @@ use std::process::Command;
 use crate::cli::exec::ExecArgs;
 use crate::cli::run::RunArgs;
 use crate::command::conflict::{check_bind_conflicts, check_env_conflicts};
-use crate::config::facility::FacilityConfig;
+use crate::config::facility::{EnvOp, FacilityConfig, FacilityEnvVar};
 use crate::error::HpcrError;
 use crate::runtime::{BindMount, ContainerRuntime, EnvVar, ExecSpec, RunSpec};
 
@@ -31,12 +31,38 @@ pub fn parse_env(s: &str) -> Result<EnvVar, HpcrError> {
     })
 }
 
+fn resolve_env(fenv: &FacilityEnvVar) -> EnvVar {
+    let value = match fenv.op {
+        EnvOp::Set => fenv.value.clone(),
+        EnvOp::Prepend => {
+            let existing = std::env::var(&fenv.key).unwrap_or_default();
+            if existing.is_empty() {
+                fenv.value.clone()
+            } else {
+                format!("{}{}{}", fenv.value, fenv.separator, existing)
+            }
+        }
+        EnvOp::Append => {
+            let existing = std::env::var(&fenv.key).unwrap_or_default();
+            if existing.is_empty() {
+                fenv.value.clone()
+            } else {
+                format!("{}{}{}", existing, fenv.separator, fenv.value)
+            }
+        }
+    };
+    EnvVar {
+        key: fenv.key.clone(),
+        value,
+    }
+}
+
 fn expand_facility(cfg: &FacilityConfig, mpi: bool) -> (Vec<BindMount>, Vec<EnvVar>) {
     let mut binds = cfg.binds.clone();
-    let mut envs = cfg.envs.clone();
+    let mut envs: Vec<EnvVar> = cfg.envs.iter().map(resolve_env).collect();
     if mpi {
         binds.extend(cfg.mpi_binds.iter().cloned());
-        envs.extend(cfg.mpi_envs.iter().cloned());
+        envs.extend(cfg.mpi_envs.iter().map(resolve_env));
     }
     (binds, envs)
 }
@@ -127,6 +153,8 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    use crate::config::facility::EnvOp;
+
     #[test]
     fn parse_bind_basic() {
         let b = parse_bind("/src:/dst").unwrap();
@@ -156,5 +184,46 @@ mod tests {
     #[test]
     fn parse_env_no_equals_errors() {
         assert!(parse_env("NOEQUALS").is_err());
+    }
+
+    fn fenv(key: &str, value: &str, op: EnvOp) -> FacilityEnvVar {
+        FacilityEnvVar {
+            key: key.to_owned(),
+            value: value.to_owned(),
+            op,
+            separator: ":".to_owned(),
+        }
+    }
+
+    #[test]
+    fn resolve_set() {
+        let e = resolve_env(&fenv("FOO", "bar", EnvOp::Set));
+        assert_eq!(e.value, "bar");
+    }
+
+    #[test]
+    fn resolve_append_with_existing() {
+        let key = "HPCR_TEST_APPEND_A";
+        std::env::set_var(key, "/existing");
+        let e = resolve_env(&fenv(key, "/new", EnvOp::Append));
+        std::env::remove_var(key);
+        assert_eq!(e.value, "/existing:/new");
+    }
+
+    #[test]
+    fn resolve_append_without_existing() {
+        let key = "HPCR_TEST_APPEND_B";
+        std::env::remove_var(key);
+        let e = resolve_env(&fenv(key, "/new", EnvOp::Append));
+        assert_eq!(e.value, "/new");
+    }
+
+    #[test]
+    fn resolve_prepend_with_existing() {
+        let key = "HPCR_TEST_PREPEND_A";
+        std::env::set_var(key, "/existing");
+        let e = resolve_env(&fenv(key, "/new", EnvOp::Prepend));
+        std::env::remove_var(key);
+        assert_eq!(e.value, "/new:/existing");
     }
 }
