@@ -12,7 +12,29 @@ mpiexec -n 32 hpcr run --mpi my_container.sif
 
 ## Installation
 
-Build from source with Cargo:
+```bash
+curl -fsSL https://raw.githubusercontent.com/AstroPatty/hpcr/main/install.sh | sh
+```
+
+This downloads the latest release binary, installs it to `~/.local/bin`, and runs `hpcr setup` automatically. If `~/.local/bin` is not on your `PATH`, add it to your shell profile:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+To install a specific version, set `HPCR_VERSION`:
+
+```bash
+HPCR_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/AstroPatty/hpcr/main/install.sh | sh
+```
+
+To install to a different directory, set `INSTALL_DIR`:
+
+```bash
+INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/AstroPatty/hpcr/main/install.sh | sh
+```
+
+### Build from source
 
 ```bash
 cargo build --release
