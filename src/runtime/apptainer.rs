@@ -1,46 +1,33 @@
 use std::ffi::OsString;
 use std::process::Command;
 
-use crate::runtime::{BindMount, ContainerRuntime, EnvVar, ExecSpec, RunSpec};
+use crate::runtime::{bind_args, env_args, flag_args, ContainerRuntime, ExecSpec, RunSpec};
 
 pub struct ApptainerRuntime;
 
-fn bind_args(binds: &[BindMount]) -> Vec<OsString> {
-    let mut out = Vec::new();
-    for b in binds {
-        out.push(OsString::from("--bind"));
-        out.push(OsString::from(format!(
-            "{}:{}",
-            b.src.display(),
-            b.dst.display()
-        )));
-    }
-    out
-}
-
-fn env_args(envs: &[EnvVar]) -> Vec<OsString> {
-    let mut out = Vec::new();
-    for e in envs {
-        out.push(OsString::from("--env"));
-        out.push(OsString::from(format!("{}={}", e.key, e.value)));
-    }
-    out
-}
-
 pub(crate) fn build_run_args(spec: &RunSpec) -> Vec<OsString> {
     let mut args = vec![OsString::from("run")];
-    args.extend(bind_args(&spec.binds));
-    args.extend(env_args(&spec.envs));
-    args.extend(spec.passthrough_args.iter().map(|s| OsString::from(s.clone())));
+    args.extend(flag_args(&spec.flags));
+    args.extend(bind_args("--bind", &spec.binds));
+    args.extend(env_args("--env", &spec.envs));
+    args.extend(
+        spec.passthrough_args
+            .iter()
+            .map(|s| OsString::from(s.clone())),
+    );
     args.push(OsString::from(spec.image.clone()));
     args
 }
 
 pub(crate) fn build_exec_args(spec: &ExecSpec) -> Vec<OsString> {
     let mut args = vec![OsString::from("exec")];
-    args.extend(bind_args(&spec.binds));
-    args.extend(env_args(&spec.envs));
-    args.extend(spec.passthrough_args.iter().map(|s| OsString::from(s.clone())));
+    args.extend(bind_args("--bind", &spec.binds));
+    args.extend(env_args("--env", &spec.envs));
+    args.extend(
+        spec.passthrough_args
+            .iter()
+            .map(|s| OsString::from(s.clone())),
+    );
     args.push(OsString::from(spec.image.clone()));
     for part in &spec.command {
         args.push(OsString::from(part.clone()));
@@ -71,7 +58,7 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    use crate::runtime::{BindMount, EnvVar};
+    use crate::runtime::{BindMount, EnvVar, Flag};
 
     #[test]
     fn run_args_order() {
@@ -85,6 +72,9 @@ mod tests {
                 key: "X".to_owned(),
                 value: "1".to_owned(),
             }],
+            flags: vec![Flag {
+                long: "--mpi".to_owned(),
+            }],
             passthrough_args: vec!["--nv".to_owned()],
         };
         let args: Vec<String> = build_run_args(&spec)
@@ -92,9 +82,11 @@ mod tests {
             .map(|a| a.into_string().unwrap())
             .collect();
         assert_eq!(args[0], "run");
+        let flag_pos = args.iter().position(|a| a == "--mpi").unwrap();
         let bind_pos = args.iter().position(|a| a == "--bind").unwrap();
         let nv_pos = args.iter().position(|a| a == "--nv").unwrap();
         let img_pos = args.iter().position(|a| a == "my.sif").unwrap();
+        assert!(flag_pos < bind_pos);
         assert!(bind_pos < nv_pos);
         assert!(nv_pos < img_pos);
         assert_eq!(args[bind_pos + 1], "/a:/b");
@@ -107,6 +99,7 @@ mod tests {
             command: vec!["python".to_owned(), "train.py".to_owned()],
             binds: vec![],
             envs: vec![],
+            flags: vec![],
             passthrough_args: vec![],
         };
         let args: Vec<String> = build_exec_args(&spec)

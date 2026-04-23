@@ -36,6 +36,7 @@ mod tests {
             image: "img".to_owned(),
             binds: vec![],
             envs: vec![],
+            flags: vec![],
             passthrough_args: vec![],
         };
         let cmd = PodmanHpcRuntime.build_run_command(&spec);

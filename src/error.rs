@@ -26,6 +26,9 @@ pub enum HpcrError {
     #[error("invalid --env '{input}': expected KEY=VALUE")]
     InvalidEnvFormat { input: String },
 
+    #[error("invalid flag format {input}: expected --valid")]
+    InvalidFlagFormat { input: String },
+
     #[error("facility config parse error for '{facility}': {source}")]
     FacilityConfigParse {
         facility: String,

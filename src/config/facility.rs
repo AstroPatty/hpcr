@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::error::HpcrError;
-use crate::runtime::{BindMount, Runtime};
+use crate::runtime::{BindMount, Flag, Runtime};
 
 #[derive(Debug, Clone, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -34,9 +34,13 @@ pub struct FacilityConfig {
     #[serde(default)]
     pub envs: Vec<FacilityEnvVar>,
     #[serde(default)]
+    pub flags: Vec<Flag>,
+    #[serde(default)]
     pub mpi_binds: Vec<BindMount>,
     #[serde(default)]
     pub mpi_envs: Vec<FacilityEnvVar>,
+    #[serde(default)]
+    pub mpi_flags: Vec<Flag>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -83,8 +87,9 @@ mod tests {
         let cfg = load_facility("perlmutter").unwrap();
         assert_eq!(cfg.facility.name, "perlmutter");
         assert!(matches!(cfg.facility.runtime, Runtime::PodmanHpc));
-        assert!(!cfg.mpi_binds.is_empty());
-        assert!(!cfg.mpi_envs.is_empty());
+        assert!(cfg.mpi_binds.is_empty());
+        assert!(cfg.mpi_envs.is_empty());
+        assert!(!cfg.mpi_flags.is_empty());
     }
 
     #[test]

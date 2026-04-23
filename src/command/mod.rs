@@ -9,12 +9,14 @@ use crate::cli::run::RunArgs;
 use crate::command::conflict::{check_bind_conflicts, check_env_conflicts};
 use crate::config::facility::{EnvOp, FacilityConfig, FacilityEnvVar};
 use crate::error::HpcrError;
-use crate::runtime::{BindMount, ContainerRuntime, EnvVar, ExecSpec, RunSpec};
+use crate::runtime::{BindMount, ContainerRuntime, EnvVar, ExecSpec, Flag, RunSpec};
 
 pub fn parse_bind(s: &str) -> Result<BindMount, HpcrError> {
     let (src, dst) = s
         .split_once(':')
-        .ok_or_else(|| HpcrError::InvalidBindFormat { input: s.to_owned() })?;
+        .ok_or_else(|| HpcrError::InvalidBindFormat {
+            input: s.to_owned(),
+        })?;
     Ok(BindMount {
         src: PathBuf::from(src),
         dst: PathBuf::from(dst),
@@ -24,7 +26,9 @@ pub fn parse_bind(s: &str) -> Result<BindMount, HpcrError> {
 pub fn parse_env(s: &str) -> Result<EnvVar, HpcrError> {
     let (key, value) = s
         .split_once('=')
-        .ok_or_else(|| HpcrError::InvalidEnvFormat { input: s.to_owned() })?;
+        .ok_or_else(|| HpcrError::InvalidEnvFormat {
+            input: s.to_owned(),
+        })?;
     Ok(EnvVar {
         key: key.to_owned(),
         value: value.to_owned(),
@@ -57,14 +61,16 @@ fn resolve_env(fenv: &FacilityEnvVar) -> EnvVar {
     }
 }
 
-fn expand_facility(cfg: &FacilityConfig, mpi: bool) -> (Vec<BindMount>, Vec<EnvVar>) {
+fn expand_facility(cfg: &FacilityConfig, mpi: bool) -> (Vec<BindMount>, Vec<EnvVar>, Vec<Flag>) {
     let mut binds = cfg.binds.clone();
     let mut envs: Vec<EnvVar> = cfg.envs.iter().map(resolve_env).collect();
+    let mut flags: Vec<Flag> = cfg.flags.clone();
     if mpi {
         binds.extend(cfg.mpi_binds.iter().cloned());
         envs.extend(cfg.mpi_envs.iter().map(resolve_env));
+        flags.extend(cfg.mpi_flags.iter().cloned());
     }
-    (binds, envs)
+    (binds, envs, flags)
 }
 
 pub fn build_run_command(
@@ -85,7 +91,7 @@ pub fn build_run_command(
         .map(|s| parse_env(s))
         .collect::<Result<_, _>>()?;
 
-    let (facility_binds, facility_envs) = expand_facility(cfg, args.common.mpi);
+    let (facility_binds, facility_envs, facility_flags) = expand_facility(cfg, args.common.mpi);
 
     check_bind_conflicts(&cfg.facility.name, &facility_binds, &user_binds)?;
     check_env_conflicts(&cfg.facility.name, &facility_envs, &user_envs)?;
@@ -99,6 +105,7 @@ pub fn build_run_command(
         image: args.image.clone(),
         binds: all_binds,
         envs: all_envs,
+        flags: facility_flags,
         passthrough_args: args.args.clone(),
     };
 
@@ -127,7 +134,7 @@ pub fn build_exec_command(
         .map(|s| parse_env(s))
         .collect::<Result<_, _>>()?;
 
-    let (facility_binds, facility_envs) = expand_facility(cfg, args.common.mpi);
+    let (facility_binds, facility_envs, facility_flags) = expand_facility(cfg, args.common.mpi);
 
     check_bind_conflicts(&cfg.facility.name, &facility_binds, &user_binds)?;
     check_env_conflicts(&cfg.facility.name, &facility_envs, &user_envs)?;
@@ -142,6 +149,7 @@ pub fn build_exec_command(
         command: args.args.clone(),
         binds: all_binds,
         envs: all_envs,
+        flags: facility_flags,
         passthrough_args: vec![],
     };
 

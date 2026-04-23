@@ -1,46 +1,34 @@
 use std::ffi::OsString;
 use std::process::Command;
 
-use crate::runtime::{BindMount, ContainerRuntime, EnvVar, ExecSpec, RunSpec};
+use crate::runtime::{bind_args, env_args, flag_args, ContainerRuntime, ExecSpec, RunSpec};
 
 pub struct PodmanRuntime;
 
-fn bind_args(binds: &[BindMount]) -> Vec<OsString> {
-    let mut out = Vec::new();
-    for b in binds {
-        out.push(OsString::from("-v"));
-        out.push(OsString::from(format!(
-            "{}:{}",
-            b.src.display(),
-            b.dst.display()
-        )));
-    }
-    out
-}
-
-fn env_args(envs: &[EnvVar]) -> Vec<OsString> {
-    let mut out = Vec::new();
-    for e in envs {
-        out.push(OsString::from("-e"));
-        out.push(OsString::from(format!("{}={}", e.key, e.value)));
-    }
-    out
-}
-
 pub(crate) fn build_run_args_for(binary: &str, spec: &RunSpec) -> (String, Vec<OsString>) {
     let mut args = vec![OsString::from("run")];
-    args.extend(bind_args(&spec.binds));
-    args.extend(env_args(&spec.envs));
-    args.extend(spec.passthrough_args.iter().map(|s| OsString::from(s.clone())));
+    args.extend(flag_args(&spec.flags));
+    args.extend(bind_args("-v", &spec.binds));
+    args.extend(env_args("-e", &spec.envs));
+    args.extend(
+        spec.passthrough_args
+            .iter()
+            .map(|s| OsString::from(s.clone())),
+    );
     args.push(OsString::from(spec.image.clone()));
     (binary.to_owned(), args)
 }
 
 pub(crate) fn build_exec_args_for(binary: &str, spec: &ExecSpec) -> (String, Vec<OsString>) {
     let mut args = vec![OsString::from("run")];
-    args.extend(bind_args(&spec.binds));
-    args.extend(env_args(&spec.envs));
-    args.extend(spec.passthrough_args.iter().map(|s| OsString::from(s.clone())));
+    args.extend(flag_args(&spec.flags));
+    args.extend(bind_args("-v", &spec.binds));
+    args.extend(env_args("-e", &spec.envs));
+    args.extend(
+        spec.passthrough_args
+            .iter()
+            .map(|s| OsString::from(s.clone())),
+    );
     args.push(OsString::from(spec.image.clone()));
     for part in &spec.command {
         args.push(OsString::from(part.clone()));
@@ -87,13 +75,11 @@ mod tests {
                 key: "K".to_owned(),
                 value: "V".to_owned(),
             }],
+            flags: vec![],
             passthrough_args: vec![],
         };
         let (binary, args) = build_run_args_for("podman", &spec);
-        let strs: Vec<String> = args
-            .into_iter()
-            .map(|a| a.into_string().unwrap())
-            .collect();
+        let strs: Vec<String> = args.into_iter().map(|a| a.into_string().unwrap()).collect();
         assert_eq!(binary, "podman");
         assert!(strs.contains(&"-v".to_owned()));
         assert!(strs.contains(&"/s:/d".to_owned()));
@@ -108,13 +94,11 @@ mod tests {
             command: vec!["bash".to_owned()],
             binds: vec![],
             envs: vec![],
+            flags: vec![],
             passthrough_args: vec![],
         };
         let (_, args) = build_exec_args_for("podman", &spec);
-        let strs: Vec<String> = args
-            .into_iter()
-            .map(|a| a.into_string().unwrap())
-            .collect();
+        let strs: Vec<String> = args.into_iter().map(|a| a.into_string().unwrap()).collect();
         let img_pos = strs.iter().position(|s| s == "img").unwrap();
         assert_eq!(strs[img_pos + 1], "bash");
     }

@@ -2,30 +2,10 @@
 name = "perlmutter"
 runtime = "podman-hpc"
 
-[[binds]]
-src = "/pscratch"
-dst = "/pscratch"
-
-[[binds]]
-src = "/global/cfs"
-dst = "/global/cfs"
-
 [[envs]]
 key = "NERSC_HOST"
 value = "perlmutter"
 
-[[mpi_binds]]
-src = "/opt/cray/pe/mpich"
-dst = "/opt/cray/pe/mpich"
+[[mpi_flags]]
+long = "--mpi"
 
-[[mpi_binds]]
-src = "/opt/cray/libfabric"
-dst = "/opt/cray/libfabric"
-
-[[mpi_envs]]
-key = "MPICH_GPU_SUPPORT_ENABLED"
-value = "1"
-
-[[mpi_envs]]
-key = "PMI_MMAP_SYNC_WAIT_TIME"
-value = "300"
